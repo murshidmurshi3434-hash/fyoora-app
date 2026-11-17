@@ -1,0 +1,235 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered FYOORA user account with role, preferences, and saved Vadakara addresses.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "appUserId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "phone": { "type": "string", "minLength": 0, "maxLength": 20 },
+        "contactPhone": { "type": "string", "minLength": 0, "maxLength": 20 },
+        "contactPhoneVerified": { "type": "boolean" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "maxLength": 160 },
+        "emailVerified": { "type": "boolean" },
+        "profileImage": { "type": "string", "maxLength": 2048 },
+        "preferredLanguage": { "type": "string", "enum": ["en", "ml"] },
+        "role": {
+          "type": "string",
+          "enum": ["customer", "restaurant_owner", "bakery_owner", "grocery_owner", "merchant", "rider", "support_staff", "admin", "super_admin"]
+        },
+        "accountStatus": { "type": "string", "enum": ["active", "suspended", "deletion_requested"] },
+        "profileCompleted": { "type": "boolean" },
+        "authProvider": { "type": "string", "enum": ["firebase_google", "firebase_phone", "sms_otp", "seed"] },
+        "loyaltyPoints": { "type": "integer" },
+        "referralCode": { "type": "string", "maxLength": 24 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "phone", "fullName", "preferredLanguage", "role", "accountStatus", "createdAt"]
+    },
+    "Vendor": {
+      "title": "Vendor",
+      "description": "Approved restaurant, bakery, grocery store, florist, celebration shop, or local merchant in Vadakara.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ownerUserId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "serviceCategory": { "type": "string", "enum": ["food", "bakery", "grocery", "celebration", "flowers_gifts"] },
+        "isOpen": { "type": "boolean" },
+        "approved": { "type": "boolean" },
+        "commissionRate": { "type": "number" }
+      },
+      "required": ["id", "ownerUserId", "name", "serviceCategory", "isOpen", "approved"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Live catalog product or menu item belonging to a vendor.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "vendorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "price": { "type": "number" },
+        "inStock": { "type": "boolean" },
+        "stockQty": { "type": "integer" }
+      },
+      "required": ["id", "vendorId", "name", "price", "inStock", "stockQty"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer marketplace or Pickup & Drop courier order with state lifecycle and payment verification.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "orderNumber": { "type": "string", "minLength": 3, "maxLength": 40 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "vendorId": { "type": "string", "maxLength": 128 },
+        "riderId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "minLength": 3, "maxLength": 40 },
+        "paymentStatus": { "type": "string", "enum": ["pending", "authorized", "captured", "failed", "refund_pending", "refunded"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderNumber", "customerId", "status", "paymentStatus", "createdAt"]
+    },
+    "RiderProfile": {
+      "title": "RiderProfile",
+      "description": "FYOORA delivery partner profile, KYC state, GPS telemetry, and tip/earnings totals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "kycStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "isOnline": { "type": "boolean" }
+      },
+      "required": ["id", "userId", "fullName", "kycStatus", "isOnline"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Customer support ticket linked to an order or Pickup & Drop parcel.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["open", "in_review", "resolved", "closed"] },
+        "subject": { "type": "string", "minLength": 2, "maxLength": 200 }
+      },
+      "required": ["id", "userId", "status", "subject"]
+    },
+    "ServiceAreaConfig": {
+      "title": "ServiceAreaConfig",
+      "description": "Admin-configurable operating city center, radius/polygon, delivery fees, and operating hours.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "radiusKm": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "name", "radiusKm", "isActive"]
+    },
+    "PaymentTransaction": {
+      "title": "PaymentTransaction",
+      "description": "Server-verified payment transaction record created via Razorpay signature verification or webhook.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["INR"] },
+        "status": { "type": "string", "enum": ["pending", "authorized", "captured", "failed", "refund_pending", "refunded"] },
+        "gateway": { "type": "string", "enum": ["razorpay", "cod"] },
+        "gatewayOrderId": { "type": "string", "maxLength": 128 },
+        "gatewayPaymentId": { "type": "string", "maxLength": 128 },
+        "webhookEventId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "userId", "amount", "currency", "status", "gateway", "createdAt"]
+    },
+    "WebhookEvent": {
+      "title": "WebhookEvent",
+      "description": "Processed Razorpay webhook event registry for idempotency and duplicate replay prevention.",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "event": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "orderId": { "type": "string", "maxLength": 128 },
+        "paymentId": { "type": "string", "maxLength": 128 },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["eventId", "event", "processedAt"]
+    },
+    "AdminDailyAggregate": {
+      "title": "AdminDailyAggregate",
+      "description": "Pre-aggregated daily revenue, GMV, order counts, and commissions for fast Super Admin BI dashboards.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "minLength": 10, "maxLength": 10 },
+        "ordersCount": { "type": "integer" },
+        "gmvInr": { "type": "number" },
+        "netRevenueInr": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "ordersCount", "gmvInr", "netRevenueInr", "updatedAt"]
+    },
+    "MarketingCampaign": {
+      "title": "MarketingCampaign",
+      "description": "FYOORA promotional campaign, seasonal banner, or push campaign.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "type", "active", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable admin security and action trail.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actorId": { "type": "string" },
+        "action": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "actorId", "action", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and saved addresses"
+    },
+    "/vendors/{vendorId}": {
+      "schema": { "$ref": "#/entities/Vendor" },
+      "description": "Approved local vendors and merchant profiles"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Live marketplace catalog items"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Orders and Pickup & Drop bookings"
+    },
+    "/riders/{riderId}": {
+      "schema": { "$ref": "#/entities/RiderProfile" },
+      "description": "FYOORA delivery partner profiles and live location"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "Customer support and parcel complaint tickets"
+    },
+    "/service_areas/{areaId}": {
+      "schema": { "$ref": "#/entities/ServiceAreaConfig" },
+      "description": "Configurable operating zones and pricing rules"
+    },
+    "/payment_transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/PaymentTransaction" },
+      "description": "Server-verified payment audit transactions"
+    },
+    "/webhook_events/{eventId}": {
+      "schema": { "$ref": "#/entities/WebhookEvent" },
+      "description": "Server-only Razorpay webhook deduplication log"
+    },
+    "/admin_daily_aggregates/{dateId}": {
+      "schema": { "$ref": "#/entities/AdminDailyAggregate" },
+      "description": "Pre-aggregated daily Super Admin analytics summaries"
+    },
+    "/marketing_campaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/MarketingCampaign" },
+      "description": "Admin promotional campaigns and notifications"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Super Admin security and PII access audit trail"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node run-server.mjs development",
+    "start": "node run-server.mjs production",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist server.js",
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/shared/domain.test.ts src/shared/authConfig.test.ts src/shared/adminAnalytics.test.ts src/lib/googleAuth.test.ts src/lib/introMedia.test.ts src/server/auth.test.ts src/server/payments.test.ts src/server/razorpayWebhook.test.ts"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "@google/genai": "^3.3.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.4",
+    "firebase-admin": "^14.5.1",
+    "helmet": "^8.3.0",
+    "razorpay": "^2.9.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vis.gl/react-google-maps": "^1.10.2",
+    "@vitejs/plugin-react": "^6.1.1",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.28.0",
+    "firebase": "^13.3.0",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vite-plugin-pwa": "^2.0.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5",
+    "glob": "^14.0.2"
+  }
+}

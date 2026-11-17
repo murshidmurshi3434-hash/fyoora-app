@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local data, credentials, and generated files
+/data/
+/.aistudio/
+/.gmp_cache/
+/dev-dist/
+/.vercel/

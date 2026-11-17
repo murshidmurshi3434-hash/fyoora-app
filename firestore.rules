@@ -1,0 +1,293 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isVerifiedIdentity() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        request.auth.token.phone_number != null
+      );
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'mtechmini@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'phone', 'fullName', 'preferredLanguage', 'role', 'accountStatus', 'createdAt'])
+        && data.keys().hasOnly([
+          'id', 'appUserId', 'phone', 'contactPhone', 'contactPhoneVerified',
+          'fullName', 'email', 'emailVerified', 'profileImage', 'preferredLanguage',
+          'role', 'addresses', 'favourites', 'privacyAcceptedAt', 'profileCompleted',
+          'accountStatus', 'deletionRequestedAt', 'loyaltyPoints', 'referralCode',
+          'phoneVerified', 'authProvider', 'linkedProviders', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.phone is string && data.phone.size() <= 20
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120
+        && data.preferredLanguage in ['en', 'ml']
+        && data.role in ['customer', 'restaurant_owner', 'bakery_owner', 'grocery_owner', 'merchant', 'rider', 'support_staff', 'admin', 'super_admin']
+        && data.accountStatus in ['active', 'suspended', 'deletion_requested']
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && (!('appUserId' in data) || (data.appUserId is string && data.appUserId.size() <= 128))
+        && (!('contactPhone' in data) || (data.contactPhone is string && data.contactPhone.size() <= 20))
+        && (!('contactPhoneVerified' in data) || data.contactPhoneVerified is bool)
+        && (!('email' in data) || (data.email is string && data.email.size() <= 160))
+        && (!('emailVerified' in data) || data.emailVerified is bool)
+        && (!('profileImage' in data) || (data.profileImage is string && data.profileImage.size() <= 2048))
+        && (!('privacyAcceptedAt' in data) || (data.privacyAcceptedAt is string && data.privacyAcceptedAt.size() <= 64))
+        && (!('profileCompleted' in data) || data.profileCompleted is bool)
+        && (!('deletionRequestedAt' in data) || (data.deletionRequestedAt is string && data.deletionRequestedAt.size() <= 64))
+        && (!('loyaltyPoints' in data) || (data.loyaltyPoints is int && data.loyaltyPoints >= 0))
+        && (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() <= 24))
+        && (!('phoneVerified' in data) || data.phoneVerified is bool)
+        && (!('authProvider' in data) || data.authProvider in ['firebase_google', 'firebase_phone', 'sms_otp', 'seed'])
+        && (!('linkedProviders' in data) || (data.linkedProviders is list && data.linkedProviders.size() <= 10 && (data.linkedProviders.size() == 0 || (data.linkedProviders[0] is string && data.linkedProviders[0].size() <= 40))))
+        && (!('addresses' in data) || (data.addresses is list && data.addresses.size() <= 20 && (data.addresses.size() == 0 || data.addresses[0] is map)))
+        && (!('favourites' in data) || (data.favourites is list && data.favourites.size() <= 200 && (data.favourites.size() == 0 || (data.favourites[0] is string && data.favourites[0].size() <= 128))))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidVendor(data) {
+      return data.keys().hasAll(['id', 'ownerUserId', 'name', 'serviceCategory', 'isOpen', 'approved'])
+        && data.id is string && data.id.size() <= 128
+        && data.ownerUserId is string && data.ownerUserId.size() <= 128
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 140
+        && data.serviceCategory in ['food', 'bakery', 'grocery', 'celebration', 'flowers_gifts']
+        && data.isOpen is bool
+        && data.approved is bool;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'vendorId', 'name', 'price', 'inStock', 'stockQty'])
+        && data.id is string && data.id.size() <= 128
+        && data.vendorId is string && data.vendorId.size() <= 128
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 160
+        && data.price is number && data.price >= 0
+        && data.inStock is bool
+        && data.stockQty is int && data.stockQty >= 0;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'orderNumber', 'customerId', 'status', 'paymentStatus', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.orderNumber is string && data.orderNumber.size() >= 3 && data.orderNumber.size() <= 40
+        && data.customerId is string && data.customerId.size() <= 128
+        && data.status is string && data.status.size() <= 40
+        && data.paymentStatus in ['pending', 'authorized', 'captured', 'failed', 'refund_pending', 'refunded']
+        && data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    // Users collection: strict PII isolation (owner or admin only, no privilege escalation)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isVerifiedIdentity() && request.auth.uid == userId
+        && isValidUser(incoming())
+        && incoming().id == request.auth.uid
+        && (
+          (incoming().role == 'customer' && incoming().accountStatus == 'active' && (!('loyaltyPoints' in incoming()) || incoming().loyaltyPoints <= 50))
+          || isAdmin()
+        );
+      allow update: if isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() || (
+          isVerifiedIdentity() && request.auth.uid == userId
+          && incoming().role == existing().role
+          && incoming().id == existing().id
+          && incoming().createdAt == existing().createdAt
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'appUserId', 'fullName', 'email', 'emailVerified', 'profileImage',
+            'phone', 'contactPhone', 'contactPhoneVerified', 'preferredLanguage',
+            'addresses', 'favourites', 'profileCompleted', 'authProvider',
+            'linkedProviders', 'accountStatus', 'deletionRequestedAt', 'updatedAt'
+          ])
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Publicly browsable approved vendors; only owner or admin can update
+    match /vendors/{vendorId} {
+      allow get: if isValidId(vendorId) && (resource.data.approved == true || isAdmin() || (isSignedIn() && resource.data.ownerUserId == request.auth.uid));
+      allow list: if resource.data.approved == true || isAdmin() || (isSignedIn() && resource.data.ownerUserId == request.auth.uid);
+      allow create: if isValidId(vendorId) && isAdmin() && isValidVendor(incoming());
+      allow update: if isValidId(vendorId) && isValidVendor(incoming()) && (
+        isAdmin() || (
+          isSignedIn() && existing().ownerUserId == request.auth.uid
+          && incoming().ownerUserId == existing().ownerUserId
+          && incoming().approved == existing().approved
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'isOpen', 'openingHours', 'avgPrepTimeMins', 'address'])
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Publicly browsable products; only owning vendor or admin can mutate
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create, update: if isValidId(productId) && isValidProduct(incoming()) && (
+        isAdmin() || (
+          isSignedIn() && exists(/databases/$(database)/documents/vendors/$(incoming().vendorId))
+          && get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUserId == request.auth.uid
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Orders: customer, assigned vendor owner, assigned rider, or admin
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && (
+        isAdmin() || (isSignedIn() && (
+          resource.data.customerId == request.auth.uid ||
+          resource.data.riderId == request.auth.uid
+        ))
+      );
+      allow list: if isAdmin() || (isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.riderId == request.auth.uid
+      ));
+      allow create: if isValidId(orderId) && isSignedIn() && isValidOrder(incoming())
+        && incoming().customerId == request.auth.uid;
+      allow update: if isValidId(orderId) && isValidOrder(incoming()) && (
+        isAdmin() || (
+          isSignedIn() && existing().customerId == request.auth.uid
+          && incoming().customerId == existing().customerId
+          && !(existing().status in ['delivered', 'refunded', 'cancelled'])
+          && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'reviewed'])
+        )
+      );
+      allow delete: if false;
+    }
+
+    // Riders: rider sees own record; admin sees all
+    match /riders/{riderId} {
+      allow get: if isValidId(riderId) && (isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(riderId) && isAdmin();
+      allow update: if isValidId(riderId) && (
+        isAdmin() || (
+          isSignedIn() && existing().userId == request.auth.uid
+          && incoming().userId == existing().userId
+          && incoming().kycStatus == existing().kycStatus
+          && incoming().diff(existing()).affectedKeys().hasOnly(['isOnline', 'currentLocation', 'lastLocationUpdatedAt'])
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Support tickets: owner or admin
+    match /support_tickets/{ticketId} {
+      allow get: if isValidId(ticketId) && (isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(ticketId) && isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isValidId(ticketId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow delete: if isAdmin();
+    }
+
+    // Service areas: public read, admin-only write
+    match /service_areas/{areaId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Payment transactions: owner or admin can read; strictly server-written via Admin SDK
+    match /payment_transactions/{transactionId} {
+      allow get: if isValidId(transactionId) && (isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // Webhook event deduplication log: strictly server-only via Admin SDK
+    match /webhook_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Admin registry
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Pre-aggregated daily admin analytics (admin-only)
+    match /admin_daily_aggregates/{dateId} {
+      allow get, list: if isValidId(dateId) && isAdmin();
+      allow create, update: if isValidId(dateId) && isAdmin()
+        && incoming().keys().hasAll(['date', 'ordersCount', 'gmvInr', 'netRevenueInr', 'updatedAt'])
+        && incoming().date is string
+        && incoming().ordersCount is int
+        && incoming().gmvInr is number;
+      allow delete: if isAdmin();
+    }
+
+    // Admin alerts & acknowledgements (admin-only)
+    match /admin_alerts/{alertId} {
+      allow get, list: if isValidId(alertId) && isAdmin();
+      allow create, update, delete: if isValidId(alertId) && isAdmin();
+    }
+
+    // Admin marketing campaigns & coupons/banners (admin write)
+    match /marketing_campaigns/{campaignId} {
+      allow get, list: if isValidId(campaignId) && isAdmin();
+      allow create, update, delete: if isValidId(campaignId) && isAdmin();
+    }
+
+    match /coupons/{couponId} {
+      allow get, list: if isAdmin() || resource.data.active == true;
+      allow create, update, delete: if isValidId(couponId) && isAdmin();
+    }
+
+    match /banners/{bannerId} {
+      allow get, list: if isAdmin() || resource.data.active == true;
+      allow create, update, delete: if isValidId(bannerId) && isAdmin();
+    }
+
+    match /admin_expenses/{expenseId} {
+      allow get, list, create, update, delete: if isValidId(expenseId) && isAdmin();
+    }
+
+    match /admin_staff/{staffId} {
+      allow get, list, create, update, delete: if isValidId(staffId) && isAdmin();
+    }
+
+    match /settlements/{settlementId} {
+      allow get, list, create, update: if isValidId(settlementId) && isAdmin();
+      allow delete: if false;
+    }
+
+    // Admin security & activity audit logs (immutable append-only for verified admins)
+    match /audit_logs/{logId} {
+      allow get, list: if isValidId(logId) && isAdmin();
+      allow create: if isValidId(logId) && isAdmin()
+        && incoming().keys().hasAll(['id', 'actorId', 'action', 'createdAt']);
+      allow update, delete: if false;
+    }
+  }
+}
