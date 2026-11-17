@@ -1,17 +1,9 @@
 import crypto from 'node:crypto';
-import { getApps, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import firebaseConfig from '../../firebase-applet-config.json' with { type: 'json' };
+import { adminDb } from './firebaseAdmin.ts';
 import type { Order, PaymentTransaction } from '../shared/types.ts';
 import { verifyRazorpayWebhookSignature } from './payments.ts';
 import type { DatabaseState, ProcessedWebhookEventRecord } from './seedData.ts';
 import { withTransaction } from './store.ts';
-
-if (!getApps().length) {
-  initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
-}
 
 export interface RazorpayWebhookInput {
   rawBody: string;
@@ -121,8 +113,7 @@ export async function syncWebhookOutcomeToFirestore(params: {
     return false;
   }
   try {
-    const app = getApps()[0];
-    const firestore = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+   const firestore = adminDb;
     const batch = firestore.batch();
 
     if (params.order) {

@@ -13,3 +13,4 @@ coverage/
 /.gmp_cache/
 /dev-dist/
 /.vercel/
+.vercel

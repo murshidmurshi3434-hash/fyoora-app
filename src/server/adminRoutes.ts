@@ -368,7 +368,11 @@ export function createAdminRouter() {
   // ── 4. Vadakara Service Area, Zones, Tiers & Restricted Areas ────────────────
   router.put('/service-area', requireAdminSection('service_area'), async (req: AuthenticatedRequest, res) => {
     const updated = await withTransaction((db) => {
-      const area = db.serviceAreas[0];
+     const area = db.serviceAreas[0];
+
+if (!area) {
+  throw new Error('No service area is configured.');
+}
       if (req.body?.name) area.name = String(req.body.name);
       if (typeof req.body?.radiusKm === 'number') area.radiusKm = Math.max(1, Math.min(50, req.body.radiusKm));
       if (typeof req.body?.isActive === 'boolean') area.isActive = req.body.isActive;

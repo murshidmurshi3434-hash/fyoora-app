@@ -763,7 +763,7 @@ export function MarketplaceCatalog({
                   </div>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                     {vendorSlots.map((slot) => {
-                      const remaining = Math.max(0, slot.maxCapacity - slot.bookedCount);
+                      const remaining = slot.remainingCapacity;
                       const full = remaining === 0;
                       const selected = selectedPreBookingSlotId === slot.id;
                       return (
@@ -786,7 +786,7 @@ export function MarketplaceCatalog({
                           </div>
                           <div className="font-bold text-xs text-[#252525] mt-1">{slot.timeLabel}</div>
                           <div className="text-[11px] text-neutral-500 mt-0.5 tabular-nums">
-                            {full ? 'Slot Full' : `${remaining} of ${slot.maxCapacity} slots left`}
+                           {full ? 'Slot Full' : `${remaining} slots left`}
                           </div>
                         </button>
                       );

@@ -239,6 +239,13 @@ export interface PreBookingSlot {
   bookedCount: number;
   isActive: boolean;
 }
+export interface PublicPreBookingSlot {
+  id: string;
+  vendorId: string;
+  date: string;
+  timeLabel: string;
+  remainingCapacity: number;
+}
 
 export interface CustomCakeSpec {
   size: '0.5 kg' | '1 kg' | '1.5 kg' | '2 kg';

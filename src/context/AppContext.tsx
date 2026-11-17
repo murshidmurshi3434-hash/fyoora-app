@@ -7,7 +7,7 @@ import type {
   LanguageCode,
   NotificationItem,
   Order,
-  PreBookingSlot,
+  PublicPreBookingSlot,
   Product,
   PromotionalBanner,
   ReviewRecord,
@@ -32,7 +32,7 @@ export interface BootstrapData {
   serviceArea: ServiceAreaConfig;
   vendors: Vendor[];
   products: Product[];
-  preBookingSlots: PreBookingSlot[];
+  preBookingSlots: PublicPreBookingSlot[];
   coupons: Coupon[];
   banners: PromotionalBanner[];
   reviews: ReviewRecord[];

@@ -1,8 +1,6 @@
 import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { getAuth as getFirebaseAdminAuth } from 'firebase-admin/auth';
-import firebaseConfig from '../../firebase-applet-config.json' with { type: 'json' };
+import { adminAuth } from './firebaseAdmin.ts';
 import {
   isEnvFlagTrue,
   normalizeIndianMobileE164,
@@ -12,13 +10,6 @@ import {
 import type { UserProfile, UserRole } from '../shared/types.ts';
 import { getDb, withTransaction } from './store.ts';
 
-if (!getApps().length) {
-  initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
-}
-
-const adminAuth = getFirebaseAdminAuth();
 
 const SESSION_SECRET = (() => {
   const configured = process.env.SESSION_SECRET?.trim();

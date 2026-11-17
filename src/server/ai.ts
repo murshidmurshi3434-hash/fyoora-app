@@ -211,8 +211,13 @@ function executeTool(
   }
 
   if (name === 'check_delivery_availability') {
-    const area = db.serviceAreas[0];
-    const lat = Number(args.lat) || area.center.lat;
+  const area = db.serviceAreas.find((item) => item.isActive);
+
+  if (!area) {
+    return { error: 'No active service area is currently available.' };
+  }
+
+  const lat = Number(args.lat) || area.center.lat;
     const lng = Number(args.lng) || area.center.lng;
     const check = isPointInServiceArea({ lat, lng }, area);
     return {

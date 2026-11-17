@@ -145,7 +145,6 @@ async function bootstrapServer() {
       smsGatewayConfigured: authStatus.phoneAuth.provider === 'sms_gateway',
       geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
       mapsConfigured,
-      ...(mapsConfigured ? { mapsApiKey } : {}),
       timestamp: new Date().toISOString(),
     });
   });
@@ -430,8 +429,17 @@ async function bootstrapServer() {
     if (!line1 || Number.isNaN(Number(lat)) || Number.isNaN(Number(lng))) {
       return res.status(400).json({ error: 'Address line and valid coordinates are required.' });
     }
-    const db = getDb();
-    const areaCheck = isPointInServiceArea({ lat: Number(lat), lng: Number(lng) }, db.serviceAreas[0]);
+   const db = getDb();
+const area = db.serviceAreas.find((item) => item.isActive);
+
+if (!area) {
+  return res.status(503).json({ error: 'No active service area is currently available.' });
+}
+
+const areaCheck = isPointInServiceArea(
+  { lat: Number(lat), lng: Number(lng) },
+  area
+);
 
     const addresses = await withTransaction((txDb) => {
       const user = txDb.users.find((u) => u.id === req.authUser!.id)!;
@@ -574,30 +582,149 @@ async function bootstrapServer() {
     });
     return res.json({ user: updated });
   });
-
   // ── Phase 2: Marketplace Catalog & Discovery ─────────────────────────────────
-  app.get('/api/marketplace/bootstrap', (req: AuthenticatedRequest, res) => {
-    const db = getDb();
-    const activeVendors = db.vendors.filter((v) => v.approved && !v.suspended);
-    const activeVendorIds = new Set(activeVendors.map((v) => v.id));
-    const activeProducts = db.products.filter((p) => activeVendorIds.has(p.vendorId));
-    const onlineRidersCount = db.riders.filter((r) => r.isOnline && r.kycStatus === 'approved').length;
 
-    return res.json({
-      serviceArea: db.serviceAreas[0],
-      serviceConfigs: db.serviceConfigs,
-      vendors: activeVendors,
-      products: activeProducts,
-      preBookingSlots: db.preBookingSlots.filter((s) => s.isActive),
-      coupons: db.coupons.filter((c) => c.active),
-      banners: db.banners.filter((b) => b.active),
-      reviews: db.reviews.filter((r) => r.status === 'published'),
-      onlineRidersCount,
-      notifications: req.authUser
-        ? db.notifications.filter((n) => n.userId === req.authUser!.id)
-        : [],
-    });
+app.get('/api/marketplace/bootstrap', (req: AuthenticatedRequest, res) => {
+  const db = getDb();
+
+  const activeVendors = db.vendors.filter(
+    (v) => v.approved && !v.suspended && !v.isSampleSeed
+  );
+
+  const activeVendorIds = new Set(activeVendors.map((v) => v.id));
+
+  const publicVendors = activeVendors.map((v) => ({
+    id: v.id,
+    name: v.name,
+    serviceCategory: v.serviceCategory,
+    supportsPreBooking: v.supportsPreBooking,
+    cuisinesOrTags: v.cuisinesOrTags,
+    logoUrl: v.logoUrl,
+    coverUrl: v.coverUrl,
+    address: v.address,
+    areaName: v.areaName,
+    location: v.location,
+    openingHours: v.openingHours,
+    isOpen: v.isOpen,
+    avgPrepTimeMins: v.avgPrepTimeMins,
+    rating: v.rating,
+    reviewCount: v.reviewCount,
+    priceLevel: v.priceLevel,
+    coverageRadiusKm: v.coverageRadiusKm,
+        featured: v.featured,
+    sponsored: v.sponsored,
+  }));
+
+  const publicProducts = db.products
+    .filter((p) => activeVendorIds.has(p.vendorId) && !p.isSampleSeed)
+    .map((p) => ({
+      id: p.id,
+      vendorId: p.vendorId,
+      serviceCategory: p.serviceCategory,
+      category: p.category,
+      name: p.name,
+      nameMl: p.nameMl,
+      description: p.description,
+      imageUrl: p.imageUrl,
+      price: p.price,
+      mrp: p.mrp,
+      unit: p.unit,
+      isVeg: p.isVeg,
+      inStock: p.inStock && !p.soldOutManual && (p.stockQty > 0),
+      variations: p.variations,
+      addons: p.addons,
+      tags: p.tags,
+      allowCustomCake: p.allowCustomCake,
+      allowGiftCustomisation: p.allowGiftCustomisation,
+      safetyVerified: p.safetyVerified,
+      trending: p.trending,
+    }));
+
+  const area = db.serviceAreas.find((a) => a.isActive);
+
+ const publicServiceArea = area
+  ? {
+      id: area.id,
+      name: area.name,
+      city: area.city,
+      district: area.district,
+      state: area.state,
+      center: area.center,
+      radiusKm: area.radiusKm,
+      polygon: area.polygon,
+      isActive: area.isActive,
+      deliveryPricing: area.deliveryPricing,
+      pickupDropPricing: area.pickupDropPricing,
+    }
+  : null;
+
+  const publicServiceConfigs = db.serviceConfigs.map((config) => ({
+    serviceKey: config.serviceKey,
+    label: config.label,
+    enabled: config.enabled,
+    minOrderInr: config.minOrderInr,
+  }));
+
+  return res.json({
+    serviceArea: publicServiceArea,
+    serviceConfigs: publicServiceConfigs,
+    vendors: publicVendors,
+    products: publicProducts,
+   preBookingSlots: db.preBookingSlots
+  .filter((s) => s.isActive && activeVendorIds.has(s.vendorId))
+  .map((s) => ({
+    id: s.id,
+    vendorId: s.vendorId,
+    date: s.date,
+    timeLabel: s.timeLabel,
+    remainingCapacity: Math.max(0, s.maxCapacity - s.bookedCount),
+  })),
+   coupons: db.coupons
+  .filter((c) => c.active && new Date(c.expiresAt).getTime() > Date.now())
+  .map((c) => ({
+    id: c.id,
+    code: c.code,
+    title: c.title,
+    description: c.description,
+    discountType: c.discountType,
+    discountValue: c.discountValue,
+    maxDiscountInr: c.maxDiscountInr,
+    minOrderInr: c.minOrderInr,
+    firstOrderOnly: c.firstOrderOnly,
+    applicableServices: c.applicableServices,
+    expiresAt: c.expiresAt,
+  })),
+    banners: db.banners
+  .filter((b) => b.active)
+  .map((b) => ({
+    id: b.id,
+    title: b.title,
+    subtitle: b.subtitle,
+    ctaLabel: b.ctaLabel,
+    targetService: b.targetService,
+    imageUrl: b.imageUrl,
+  })),
+    reviews: db.reviews
+  .filter((r) => r.status === 'published')
+  .map((r) => ({
+    id: r.id,
+    customerName: r.customerName,
+    vendorId: r.vendorId,
+    productId: r.productId,
+    rating: r.rating,
+    deliveryRating: r.deliveryRating,
+    comment: r.comment,
+    createdAt: r.createdAt,
+  })),
+    onlineRidersCount: db.riders.filter(
+      (r) => r.isOnline && r.kycStatus === 'approved'
+    ).length,
+    notifications: req.authUser
+      ? db.notifications.filter((n) => n.userId === req.authUser!.id)
+      : [],
   });
+});
+
 
   app.post('/api/service-area/check', (req, res) => {
     const lat = Number(req.body?.lat);
@@ -605,14 +732,37 @@ async function bootstrapServer() {
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
       return res.status(400).json({ error: 'Valid lat/lng required.' });
     }
-    const area = getDb().serviceAreas[0];
-    return res.json({ area, check: isPointInServiceArea({ lat, lng }, area) });
+   const area = getDb().serviceAreas.find((item) => item.isActive);
+
+if (!area) {
+  return res.status(503).json({ error: 'No active service area is currently available.' });
+}
+
+return res.json({
+  area: {
+    id: area.id,
+    name: area.name,
+    city: area.city,
+    district: area.district,
+    state: area.state,
+    center: area.center,
+    radiusKm: area.radiusKm,
+    polygon: area.polygon,
+    isActive: area.isActive,
+  },
+  check: isPointInServiceArea({ lat, lng }, area),
+});
   });
 
   app.post('/api/delivery/quote', (req, res) => {
     const db = getDb();
-    const area = db.serviceAreas[0];
-    const vendor = db.vendors.find((v) => v.id === req.body?.vendorId);
+   const area = db.serviceAreas.find((item) => item.isActive);
+
+if (!area) {
+  return res.status(503).json({ error: 'No active service area is currently available.' });
+}
+
+const vendor = db.vendors.find((v) => v.id === req.body?.vendorId);
     const lat = Number(req.body?.lat) || area.center.lat;
     const lng = Number(req.body?.lng) || area.center.lng;
     const itemsSubtotal = Number(req.body?.itemsSubtotal) || 0;
@@ -647,7 +797,11 @@ async function bootstrapServer() {
 
   app.post('/api/pickup-drop/quote', (req, res) => {
     const db = getDb();
-    const area = db.serviceAreas[0];
+   const area = db.serviceAreas.find((item) => item.isActive);
+
+if (!area) {
+  return res.status(503).json({ error: 'No active service area is currently available.' });
+}
     const pickup = req.body?.pickup;
     const drop = req.body?.drop;
     const size = (req.body?.size || 'small') as 'small' | 'medium' | 'large';
@@ -702,7 +856,11 @@ async function bootstrapServer() {
           }
         }
 
-        const area = db.serviceAreas[0];
+        const area = db.serviceAreas.find((item) => item.isActive);
+
+if (!area) {
+  throw new Error('No active service area is currently available.');
+}
         const body = req.body || {};
         const serviceType = (body.serviceType || 'food') as ServiceType;
         const paymentMethod = (body.paymentMethod || 'cod') as PaymentMethod;
@@ -1962,13 +2120,22 @@ async function bootstrapServer() {
     });
   }
 
-  const host = '0.0.0.0';
-  app.listen(PORT, host, () => {
-    console.log(`FYOORA server listening on http://${host}:${PORT}`);
-  });
+
+  return app;
 }
 
-bootstrapServer().catch((err) => {
-  console.error('Failed to start FYOORA server:', err);
-  process.exit(1);
-});
+export const appPromise = bootstrapServer();
+
+if (process.env.VERCEL !== '1') {
+  appPromise
+    .then((app) => {
+      const host = '0.0.0.0';
+      app.listen(PORT, host, () => {
+        console.log(`FYOORA server listening on http://${host}:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error('Failed to start FYOORA server:', err);
+      process.exit(1);
+    });
+}
